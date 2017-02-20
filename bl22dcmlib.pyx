@@ -1,20 +1,22 @@
-import math
+# distutils: extra_compile_args = -fopenmp
+# distutils: extra_link_args = -fopenmp
+
 from cython cimport boundscheck, wraparound
 from cython.parallel cimport prange
 import numpy as np
 
+cdef extern from "math.h" nogil:
+    double sin(double x)
+    double asin(double x)
 
-EV2REVA = 0.2624682843
-c=299792458
-h=4.13566727e-15
-aSi=5.43102088e-10 # Simo macro su spec
-hc = 12398.419 #eV *Angstroms
-PMAC_OVERFLOW = 8388608 #2**23 encoder register 24 bits overflow
+cdef double degrees(double radian) nogil:
+    return radian * 180 / 3.14159265359
 
+cdef double radians(double degree) nogil:
+    return degree * 3.14159265359 / 180
 
-
-cpdef double energy2bragg (double energy, double vcm_pitch, double d,
-                   double offset):
+cdef double energy2bragg (double energy, double vcm_pitch, double d,
+                   double offset) nogil:
     """
     Method to calculate the bragg angle
     :param energy: Energy in eV
@@ -23,19 +25,16 @@ cpdef double energy2bragg (double energy, double vcm_pitch, double d,
     :param offset: offset of the crystal
     :return: bragg angle in degree
     """
-    cdef double bragg_rad, bragg_deg
+    cdef double bragg_rad, bragg_deg, hc = 12398.419 #eV *Angstroms
 
-    try:
-        bragg_rad = math.asin(hc/2/d/energy) + 2 * vcm_pitch + offset
-    except ZeroDivisionError as e:
-        bragg_rad = float('nan')
 
-    bragg_deg = math.degrees(bragg_rad)
+    bragg_rad = asin(hc/2/d/energy) + 2 * vcm_pitch + offset
+    bragg_deg = degrees(bragg_rad)
     return bragg_deg
 
 
-cpdef double bragg2energy (double bragg, double vcm_pitch, double d,
-                   double offset):
+cdef double bragg2energy (double bragg, double vcm_pitch, double d,
+                   double offset) nogil:
     """
     Method to calculate the bragg angle
     :param bragg: Bragg angle in degree
@@ -45,20 +44,22 @@ cpdef double bragg2energy (double bragg, double vcm_pitch, double d,
     :return: Energy in eV
     """
 
-    cdef double bragg_rad, energy
+    cdef double bragg_rad, energy, hc = 12398.419 #eV *Angstroms
 
-    bragg_rad = math.radians(bragg)
-    try:
-        energy = hc / (2 * d * math.sin(bragg_rad - 2 * vcm_pitch - offset))
-    except ZeroDivisionError as e:
-        energy = float('nan')
+
+    bragg_rad = radians(bragg)
+    t = (2 * d * sin(bragg_rad - 2 * vcm_pitch - offset))
+    if t == 0:
+        energy = 0
+    else:
+        energy = hc / t
 
     return energy
 
 
 
-cpdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
-                         long pmac_offset, long pmac_enc):
+cdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
+                         long pmac_offset, long pmac_enc) nogil:
     """
     Function to calculate the encoder value for one bragg angle.
     :param bragg: Bragg angle in degrees
@@ -73,6 +74,7 @@ cpdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
     cdef:
         long braggMotorOffsetEncCounts, enc_value
         double offset
+        long PMAC_OVERFLOW = 8388608 #2**23 encoder register 24 bits overflow
 
     braggMotorOffsetEncCounts = <long> (bragg_offset * bragg_spu)
     offset = pmac_offset - pmac_enc + braggMotorOffsetEncCounts
@@ -87,8 +89,8 @@ cpdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
     return enc_value
 
 
-cpdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
-                          long pmac_offset, long pmac_enc):
+cdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
+                          long pmac_offset, long pmac_enc) nogil:
     """
     Function to calcule the bragg angle value for one encoder.
 
@@ -107,11 +109,12 @@ cpdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
     cdef:
         long braggMotorOffsetEncCounts, enc_value
         double offset
+        long PMAC_OVERFLOW = 8388608 #2**23 encoder register 24 bits overflow
 
     braggMotorOffsetEncCounts = <long> (bragg_offset * bragg_spu)
-    offset = pmac_offset - pmac_enc + braggMotorOffsetEncCounts
+    offset = <long> (pmac_offset - pmac_enc + braggMotorOffsetEncCounts)
 
-    enc_value = encoder + offset
+    enc_value = <long> (encoder + offset)
     if enc_value > PMAC_OVERFLOW:
         enc_value = enc_value - 2 * PMAC_OVERFLOW
     elif enc_value < -PMAC_OVERFLOW:
@@ -120,9 +123,10 @@ cpdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
     return enc_value/bragg_spu
 
 
-cpdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
+cdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
                           double offset, double bragg_spu,
-                          double bragg_offset, long pmac_offset, long pmac_enc):
+                          double bragg_offset, long pmac_offset, long pmac_enc)\
+        nogil:
     """
     Function to convert from energy to encoder value
 
@@ -147,9 +151,10 @@ cpdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
     return encoder
 
 
-cpdef double encoder2energy (long encoder, double vcm_pitch_rad, double d,
+cdef double encoder2energy (long encoder, double vcm_pitch_rad, double d,
                           double offset, double bragg_spu,
-                          double bragg_offset, long pmac_offset, long pmac_enc):
+                          double bragg_offset, long pmac_offset, long pmac_enc)\
+        nogil:
 
     """
     Function to convert from encoder to energy value
@@ -207,7 +212,7 @@ cpdef enegies4encoders(long[:] encoders, double vcm_pitch_rad, double d,
 
 @boundscheck(False)
 @wraparound(False)
-cpdef enegies4encoders(double[:] energies, double vcm_pitch_rad, double d,
+cpdef encoders4energies(double[:] energies, double vcm_pitch_rad, double d,
                        double offset, double bragg_spu,
                        double bragg_offset, long pmac_offset, long pmac_enc):
 
