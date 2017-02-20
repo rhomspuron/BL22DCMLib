@@ -1,8 +1,5 @@
-import py_energy
+
 import time
-import pyximport
-pyximport.install()
-import cy_energy
 import PyTango
 
 bragg_name = 'motor/dcm_pmac_ctrl/1'
@@ -40,29 +37,31 @@ if __name__ == '__main__':
     pmac_offset = float(pmac.SendCtrlChar("P").split()[0])
     pmac_enc = float(pmac.GetMVariable(101))
 
-    print 'Start testing with python lib' 
-    t1 = time.time()
-    print  start_energy, end_energy, nr_points, int_time,bragg_spu, bragg_offset, \
-        pmac_offset, pmac_enc, \
-                              crystal, vcm_pitch_mrad, dSi111, offsetSi111, \
-                              dSi311, offsetSi311 
-    py_values = py_energy.get_enc_table(start_energy, end_energy, nr_points, int_time, 
-                              bragg_spu, bragg_offset, pmac_offset, pmac_enc, 
-                              crystal, vcm_pitch_mrad, dSi111, offsetSi111, 
-                              dSi311, offsetSi311)
+    # TODO: adapt to new version
 
-    print (time.time() -t1) * 1e6, 'us'
-
-    print 'Start testing with cython lib' 
-    t1 = time.time()
-    cy_values = cy_energy.get_enc_table(start_energy, end_energy, nr_points, int_time,
-                              bragg_spu, bragg_offset, pmac_offset, pmac_enc, 
-                              crystal, vcm_pitch_mrad, dSi111, offsetSi111, 
-                              dSi311, offsetSi311)
-
-    print (time.time()-t1) * 1e6, 'us'
-
-    print py_values == cy_values
+    # print 'Start testing with python lib'
+    # t1 = time.time()
+    # print  start_energy, end_energy, nr_points, int_time,bragg_spu, bragg_offset, \
+    #     pmac_offset, pmac_enc, \
+    #                           crystal, vcm_pitch_mrad, dSi111, offsetSi111, \
+    #                           dSi311, offsetSi311
+    # py_values = py_energy.get_enc_table(start_energy, end_energy, nr_points, int_time,
+    #                           bragg_spu, bragg_offset, pmac_offset, pmac_enc,
+    #                           crystal, vcm_pitch_mrad, dSi111, offsetSi111,
+    #                           dSi311, offsetSi311)
+    #
+    # print (time.time() -t1) * 1e6, 'us'
+    #
+    # print 'Start testing with cython lib'
+    # t1 = time.time()
+    # cy_values = cy_energy.get_enc_table(start_energy, end_energy, nr_points, int_time,
+    #                           bragg_spu, bragg_offset, pmac_offset, pmac_enc,
+    #                           crystal, vcm_pitch_mrad, dSi111, offsetSi111,
+    #                           dSi311, offsetSi311)
+    #
+    # print (time.time()-t1) * 1e6, 'us'
+    #
+    # print py_values == cy_values
 
     
     
