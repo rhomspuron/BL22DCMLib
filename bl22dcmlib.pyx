@@ -59,14 +59,14 @@ cdef double bragg2energy (double bragg, double vcm_pitch, double d,
 
 
 cdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
-                         long pmac_offset, long pmac_enc) nogil:
+                        long bragg_pos, long bragg_enc) nogil:
     """
     Function to calculate the encoder value for one bragg angle.
     :param bragg: Bragg angle in degrees
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: encoder value
     """
 
@@ -77,7 +77,7 @@ cdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
         long PMAC_OVERFLOW = 8388608 #2**23 encoder register 24 bits overflow
 
     braggMotorOffsetEncCounts = <long> (bragg_offset * bragg_spu)
-    offset = pmac_offset - pmac_enc + braggMotorOffsetEncCounts
+    offset = bragg_pos - bragg_enc + braggMotorOffsetEncCounts
 
     enc_value = <long> ((bragg * bragg_spu) - offset)
 
@@ -90,15 +90,15 @@ cdef long bragg2encoder(double bragg, double bragg_spu, double bragg_offset,
 
 
 cdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
-                          long pmac_offset, long pmac_enc) nogil:
+                          long bragg_pos, long bragg_enc) nogil:
     """
     Function to calcule the bragg angle value for one encoder.
 
     :param encoder: Encoder value
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: Bragg angle in degrees
     """
 
@@ -112,7 +112,7 @@ cdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
         long PMAC_OVERFLOW = 8388608 #2**23 encoder register 24 bits overflow
 
     braggMotorOffsetEncCounts = <long> (bragg_offset * bragg_spu)
-    offset = <long> (pmac_offset - pmac_enc + braggMotorOffsetEncCounts)
+    offset = <long> (bragg_pos - bragg_enc + braggMotorOffsetEncCounts)
 
     enc_value = <long> (encoder + offset)
     if enc_value > PMAC_OVERFLOW:
@@ -125,7 +125,7 @@ cdef double encoder2bragg(long encoder, double bragg_spu, double bragg_offset,
 
 cdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
                           double offset, double bragg_spu,
-                          double bragg_offset, long pmac_offset, long pmac_enc)\
+                          double bragg_offset, long bragg_pos, long bragg_enc)\
         nogil:
     """
     Function to convert from energy to encoder value
@@ -136,8 +136,8 @@ cdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
     :param offset: offset of the crystal
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: encoder value
     """
 
@@ -146,14 +146,14 @@ cdef long energy2encoder (double energy, double vcm_pitch_rad, double d,
         long encoder
 
     bragg = energy2bragg(energy, vcm_pitch_rad, d, offset)
-    encoder = bragg2encoder(bragg, bragg_spu, bragg_offset, pmac_offset,
-                            pmac_enc)
+    encoder = bragg2encoder(bragg, bragg_spu, bragg_offset, bragg_pos,
+                            bragg_enc)
     return encoder
 
 
 cdef double encoder2energy (long encoder, double vcm_pitch_rad, double d,
                           double offset, double bragg_spu,
-                          double bragg_offset, long pmac_offset, long pmac_enc)\
+                          double bragg_offset, long bragg_pos, long bragg_enc)\
         nogil:
 
     """
@@ -165,14 +165,14 @@ cdef double encoder2energy (long encoder, double vcm_pitch_rad, double d,
     :param offset: offset of the crystal
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: Energy in eV
     """
 
     cdef double bragg, energy
-    bragg = encoder2bragg(encoder,bragg_spu, bragg_offset, pmac_offset,
-                          pmac_enc)
+    bragg = encoder2bragg(encoder,bragg_spu, bragg_offset, bragg_pos,
+                          bragg_enc)
     energy = bragg2energy(bragg, vcm_pitch_rad, d, offset)
     return energy
 
@@ -182,7 +182,7 @@ cdef double encoder2energy (long encoder, double vcm_pitch_rad, double d,
 @wraparound(False)
 cpdef enegies4encoders(long[:] encoders, double vcm_pitch_rad, double d,
                        double offset, double bragg_spu,
-                       double bragg_offset, long pmac_offset, long pmac_enc):
+                       double bragg_offset, long bragg_pos, long bragg_enc):
 
     """
     Funcion to transform an encoder array to energies array
@@ -193,8 +193,8 @@ cpdef enegies4encoders(long[:] encoders, double vcm_pitch_rad, double d,
     :param offset: offset of the crystal
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: numpy array with energies values in eV
     """
     cdef:
@@ -206,15 +206,15 @@ cpdef enegies4encoders(long[:] encoders, double vcm_pitch_rad, double d,
 
     for i in prange(N, nogil=True):
         values[i] = encoder2energy(encoders[i], vcm_pitch_rad, d, offset,
-                                   bragg_spu, bragg_offset, pmac_offset,
-                                   pmac_enc)
+                                   bragg_spu, bragg_offset, bragg_pos,
+                                   bragg_enc)
     return np.asarray(values)
 
 @boundscheck(False)
 @wraparound(False)
 cpdef encoders4energies(double[:] energies, double vcm_pitch_rad, double d,
                        double offset, double bragg_spu,
-                       double bragg_offset, long pmac_offset, long pmac_enc):
+                       double bragg_offset, long bragg_pos, long bragg_enc):
 
     """
     Funcion to transform an encoder array to energies array
@@ -225,8 +225,8 @@ cpdef encoders4energies(double[:] energies, double vcm_pitch_rad, double d,
     :param offset: offset of the crystal
     :param bragg_spu: Bragg step per unit (Sardana)
     :param bragg_offset: Bragg offset (Sardana)
-    :param pmac_offset: Pmac internal offset of the bragg motor
-    :param pmac_enc: Pmac internal value of the encoder
+    :param bragg_pos: Pmac internal offset of the bragg motor
+    :param bragg_enc: Pmac internal value of the encoder
     :return: numpy array with energies values in eV
     """
     cdef:
@@ -238,7 +238,7 @@ cpdef encoders4energies(double[:] energies, double vcm_pitch_rad, double d,
 
     for i in prange(N, nogil=True):
         values[i] = energy2encoder(energies[i], vcm_pitch_rad, d, offset,
-                                   bragg_spu, bragg_offset, pmac_offset,
-                                   pmac_enc)
+                                   bragg_spu, bragg_offset, bragg_pos,
+                                   bragg_enc)
     return np.asarray(values)
 
